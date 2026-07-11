@@ -1,0 +1,38 @@
+[package]
+name        = "chisel"
+version     = "0.1.0"
+edition     = "2021"
+description = "A simple static site generator — Rust port of mc.py"
+
+[[bin]]
+name = "chisel"
+path = "src/main.rs"
+
+[dependencies]
+# Jinja2-compatible template engine
+minijinja  = { version = "2", features = ["builtins", "loader", "json"] }
+
+# CommonMark + extensions (tables, footnotes, smart punctuation, …)
+comrak     = { version = "0.29", default-features = false, features = ["shortcodes"] }
+
+# Data-parallel iteration (used in the file-tree walk)
+rayon      = "1"
+
+# Directory traversal
+walkdir    = "2"
+
+# Date / time parsing and formatting
+chrono     = { version = "0.4", features = ["clock"] }
+
+# Fast, compiled regular expressions (used in template preprocessing)
+regex      = "1"
+
+# Serde derive for serialising Entry into minijinja context Values
+serde      = { version = "1", features = ["derive"] }
+
+[profile.release]
+opt-level = 3
+strip = true
+lto = "thin"
+codegen-units = 1
+panic = "abort"
