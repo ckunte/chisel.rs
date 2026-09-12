@@ -37,7 +37,7 @@ const POSTS: &str = "Sites/notes/";
 /// Local www output folder (relative to $HOME)
 const WWW: &str = "Sites/home.lo/";
 /// Jinja2 template folder (relative to $HOME)
-const TMPL: &str = "Sites/bare/";
+const TMPL: &str = "Sites/templates/";
 /// Number of recent posts included in the JSON feed
 const SHOW: usize = 3;
 

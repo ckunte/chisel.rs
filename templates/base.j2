@@ -1,0 +1,24 @@
+{% from "sitesettings.j2" import site_title, site_url, site_author, site_desc -%}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ site_title }}{% block title %}{% endblock %}</title>
+{%- block og %}{%- endblock %}
+<link rel="icon" href="data:,">
+<link type="text/css" rel="stylesheet" href="/style.css">
+{%- block feed %}{%- endblock %}
+</head>
+<body>
+<header>
+  <a href="/">{{ site_title }}</a>
+</header>
+<main>
+{%- block post -%}{%- endblock -%}
+</main>
+<footer>
+  <p>&copy; {{ site_author }}</p>
+</footer>
+</body>
+</html>
