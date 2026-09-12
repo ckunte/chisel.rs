@@ -1,0 +1,13 @@
+{# Archive: full list of notes, newest first (chisel already sorts `entries`
+   this way, so no sorting is done here). Included from home.j2. #}
+<section id="archive">
+  <h2>Archive</h2>
+  <ul>
+  {%- for entry in entries %}
+    <li>
+      <time datetime="{{ entry.feed_date }}">{{ entry.nice_date }}</time>
+      &mdash; <a href="/{{ entry.url }}">{{ entry.title | e }}</a>
+    </li>
+  {%- endfor %}
+  </ul>
+</section>

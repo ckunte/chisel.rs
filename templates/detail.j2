@@ -1,0 +1,13 @@
+{% extends "base.j2" %}
+{%- block title %}: {{ entry.title }}{%- endblock %}
+{%- block og %}
+<meta name="description" content="{{ entry.content | striptags | truncate(150) }}">
+{%- endblock %}
+{% block post %}
+<article>
+  <h1>{{ entry.title | e }}</h1>
+  <time datetime="{{ entry.feed_date }}">{{ entry.nice_date }}</time>
+  {{ entry.content }}
+</article>
+{% include "nav.j2" %}
+{%- endblock %}

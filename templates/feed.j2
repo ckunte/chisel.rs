@@ -1,0 +1,25 @@
+{% from "sitesettings.j2" import site_title, site_author, site_url, site_desc -%}
+{
+  "version" : "https://jsonfeed.org/version/1.1",
+  "title" : {{ site_title | tojson }},
+  "home_page_url" : "{{ site_url }}",
+  "feed_url" : "{{ site_url }}/feed.json",
+  "description" : {{ site_desc | tojson }},
+  "authors" : [
+    {
+      "name" : {{ site_author | tojson }},
+      "url" : "{{ site_url }}"
+    }
+  ],
+  "items" : [
+  {%- for entry in entries %}
+    {
+      "id" : "{{ site_url }}/{{ entry.url }}",
+      "url" : "{{ site_url }}/{{ entry.url }}",
+      "title" : {{ entry.title | tojson }},
+      "content_html" : {{ entry.content | tojson }},
+      "date_published" : "{{ entry.feed_date }}"
+    }{%- if not loop.last %},{%- endif %}
+  {%- endfor %}
+  ]
+}
