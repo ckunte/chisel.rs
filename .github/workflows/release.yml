@@ -1,0 +1,126 @@
+name: release
+
+# Build `chisel` for Windows (x86-64), macOS (Apple silicon), Raspberry Pi 5 and
+# Linux x86-64 (both statically linked), and attach the archives to a GitHub release.
+#
+# Trigger: push a tag like v0.1.0   ->  git tag v0.1.0 && git push origin v0.1.0
+# or run it by hand from the Actions tab (builds artifacts only, no release).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # On a tag push, make sure the tag matches the version in Cargo.toml.
+  check-version:
+    name: check tag matches Cargo.toml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: compare versions
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          cargo_version=$(sed -n 's/^version *= *"\(.*\)"$/\1/p' Cargo.toml | head -1)
+          tag_version="${GITHUB_REF_NAME#v}"
+          if [ "$cargo_version" != "$tag_version" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match Cargo.toml version ${cargo_version}"
+            exit 1
+          fi
+          echo "tag ${GITHUB_REF_NAME} matches Cargo.toml version ${cargo_version}"
+
+  build:
+    name: build (${{ matrix.name }})
+    needs: check-version
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            exe: chisel.exe
+          - name: macos-arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            exe: chisel
+          # musl = fully static, so it runs on any 64-bit Raspberry Pi OS
+          # regardless of the glibc version installed on the Pi.
+          - name: linux-arm64-rpi5
+            os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            exe: chisel
+          # static build for any 64-bit Intel/AMD Linux distro
+          - name: linux-x86_64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            exe: chisel
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: install musl tools
+        if: contains(matrix.target, 'musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: build
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: package (zip)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $name = "chisel-${{ github.ref_name }}-${{ matrix.name }}"
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path "target/${{ matrix.target }}/release/${{ matrix.exe }}", README.md, LICENSE, templates -DestinationPath "dist/$name.zip"
+
+      - name: package (tar.gz)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          name="chisel-${{ github.ref_name }}-${{ matrix.name }}"
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/release/${{ matrix.exe }}" README.md LICENSE dist/
+          cp -r templates dist/
+          tar -C dist -czf "dist/$name.tar.gz" ${{ matrix.exe }} README.md LICENSE templates
+          rm -rf dist/${{ matrix.exe }} dist/README.md dist/LICENSE dist/templates
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: chisel-${{ matrix.name }}
+          path: dist/*
+
+  release:
+    name: publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: checksums
+        run: cd dist && sha256sum * > SHA256SUMS.txt
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*
+          generate_release_notes: true
