@@ -25,3 +25,12 @@ All raw HTML is omitted. For instance `<figure>` block will be removed and so on
 [ck]: https://github.com/ckunte/chisel
 [minijinja]: https://docs.rs/minijinja/latest/minijinja/
 
+## Some comparisons
+
+In rending 100k synthetic posts (or notes) chisel.rs is about 3x and 18x faster than Zola and Hugo respectively (run based on 2 vCPUs).
+
+| Generator | 1k posts (ms) | 5k posts (ms) | 100k posts (ms) |
+| --------- | ------------- | ------------- | --------------- |
+| chisel.rs | 56            | 751           | 3,805           |
+| Zola      | 104           | 868           | 11,533          |
+| Hugo      | 762           | 3,569         | 69,827          |
