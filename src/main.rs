@@ -320,7 +320,14 @@ fn build_env(tmpl_dir: Arc<PathBuf>) -> Environment<'static> {
     // Used in detail.j2 for the <meta description> and feed.j2 content_text.
     env.add_filter("striptags", |s: String| -> String {
         static RE: OnceLock<Regex> = OnceLock::new();
+        static PUNCT_RE: OnceLock<Regex> = OnceLock::new();
         let re = RE.get_or_init(|| Regex::new(r"(?s)<[^>]*>").unwrap());
+        // Tags are replaced with a space (below) so that adjacent block-level
+        // elements don't glue into one word, e.g. "<p>foo</p><p>bar</p>" ->
+        // "foo bar" rather than "foobar". But that space is wrong when the
+        // tag closes right before punctuation, e.g. "<a>word</a>," would
+        // otherwise become "word ," -- this regex removes that stray space.
+        let punct_re = PUNCT_RE.get_or_init(|| Regex::new(r" +([,.;:!?)\]}])").unwrap());
         // Single pass: strip tags, then collapse whitespace by writing
         // directly into one output buffer (no intermediate Vec<&str>).
         let stripped = re.replace_all(&s, " ");
@@ -340,7 +347,7 @@ fn build_env(tmpl_dir: Arc<PathBuf>) -> Environment<'static> {
         if out.ends_with(' ') {
             out.pop();
         }
-        out
+        punct_re.replace_all(&out, "$1").into_owned()
     });
 
     // {{ text | wordcount }} -- count whitespace-separated words.

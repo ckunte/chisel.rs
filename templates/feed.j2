@@ -17,7 +17,7 @@
       "id" : "{{ site_url }}/{{ entry.url }}",
       "url" : "{{ site_url }}/{{ entry.url }}",
       "title" : {{ entry.title | tojson }},
-      "content_html" : {{ entry.content | tojson }},
+      "content_text" : {{ entry.content | striptags | truncate | tojson }},
       "date_published" : "{{ entry.feed_date }}"
     }{%- if not loop.last %},{%- endif %}
   {%- endfor %}
