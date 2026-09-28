@@ -4,7 +4,7 @@ chisel is a static site generator, and a port of [its python sibling][ck].
 
 Under `$HOME/Sites`, chisel expects the following folders:
 
-- `templates` with [minijinja] compliant templates (see `templates/` in this repo for a basic starter set)
+- `bare` with [minijinja] compliant templates (see `bare/` &ndash; a template folder in this repo &ndash; for a basic starter set)
 - `notes` with markdown files (with extension, say, .md)
 
 A typical note format is as follows:

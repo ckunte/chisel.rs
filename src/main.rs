@@ -37,7 +37,7 @@ const POSTS: &str = "Sites/notes/";
 /// Local www output folder (relative to $HOME)
 const WWW: &str = "Sites/home.lo/";
 /// Jinja2 template folder (relative to $HOME)
-const TMPL: &str = "Sites/templates/";
+const TMPL: &str = "Sites/bare/";
 /// Number of recent posts included in the JSON feed
 const SHOW: usize = 3;
 
@@ -106,8 +106,8 @@ fn render_md(text: &str) -> String {
     let mut opts = Options::default();
     opts.extension.table         = true;
     opts.extension.footnotes     = true;
-    opts.extension.strikethrough = true;
     opts.parse.smart             = true;  // smartypants (comrak 0.29: ParseOptions)
+  //opts.extension.strikethrough = true;
   //opts.render.unsafe_          = true;  // pass raw HTML through; needed for
                                           // <figure>, <details>, and any inline
                                           // HTML mixed with markdown content
@@ -547,7 +547,7 @@ NOTE FORMAT
     python-on-windows.md dated 2025-03-14 becomes /2025/python-on-windows.
 
 AUTHOR
-    Written by Chetan Kunté
+    Written by Chetan Kunté and Claude
     https://ckunte.net
 
 REPORTING BUGS

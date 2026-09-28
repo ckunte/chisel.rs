@@ -1,8 +1,8 @@
 [package]
 name        = "chisel"
-version     = "0.1.0"
+version     = "0.1.2"
 edition     = "2021"
-description = "A simple static site generator — Rust port of mc.py"
+description = "A simple static site generator"
 
 [[bin]]
 name = "chisel"
