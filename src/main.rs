@@ -358,10 +358,14 @@ fn build_env(tmpl_dir: Arc<PathBuf>) -> Environment<'static> {
 
     // {{ text | truncate }}       -- truncate to 255 chars (default)
     // {{ text | truncate(100) }}  -- truncate to explicit char limit
-    // Cuts at the last word boundary before the limit and appends U+2026 (…).
+    // Cuts at the last word boundary before the limit and appends "...".
+    // Plain ASCII rather than the U+2026 ellipsis character, since the
+    // latter shows up as mojibake ("â€¦") wherever a client or server
+    // along the way mishandles the UTF-8 encoding (e.g. feed readers).
     env.add_filter("truncate", |s: String, length: Option<usize>| -> String {
         let limit = length.unwrap_or(255);
-        let end   = '\u{2026}'; // horizontal ellipsis
+        let end   = "...";
+        let end_chars = end.chars().count();
 
         // Walk char boundaries directly — no Vec<char> materialisation.
         // `nth_boundary` is the byte offset right after the `limit`-th char.
@@ -378,18 +382,21 @@ fn build_env(tmpl_dir: Arc<PathBuf>) -> Environment<'static> {
             return s; // already short enough, return without copying
         }
 
-        // Reserve one char for the ellipsis: cut one char earlier.
-        let budget_end = s[..nth_boundary]
-            .char_indices()
-            .last()
-            .map(|(idx, _)| idx)
-            .unwrap_or(0);
+        // Reserve `end_chars` chars for the ellipsis: cut that many chars earlier.
+        let mut budget_end = nth_boundary;
+        for _ in 0..end_chars {
+            budget_end = s[..budget_end]
+                .char_indices()
+                .last()
+                .map(|(idx, _)| idx)
+                .unwrap_or(0);
+        }
         let budget = &s[..budget_end];
         let cut = budget.rfind(char::is_whitespace).unwrap_or(budget.len());
 
-        let mut out = String::with_capacity(cut + end.len_utf8());
+        let mut out = String::with_capacity(cut + end.len());
         out.push_str(budget[..cut].trim_end());
-        out.push(end);
+        out.push_str(end);
         out
     });
 
