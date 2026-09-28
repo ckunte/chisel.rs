@@ -1,7 +1,7 @@
 name: release
 
-# Build `chisel` for Windows (x86-64), macOS (Apple silicon), Raspberry Pi 5 and
-# Linux x86-64 (both statically linked), and attach the archives to a GitHub release.
+# Build `chisel` for macOS (Apple silicon), Raspberry Pi 5 and Linux x86-64
+# (both statically linked), and attach the archives to a GitHub release.
 #
 # Trigger: push a tag like v0.1.0   ->  git tag v0.1.0 && git push origin v0.1.0
 # or run it by hand from the Actions tab (builds artifacts only, no release).
@@ -44,25 +44,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: windows-x86_64
-            os: windows-latest
-            target: x86_64-pc-windows-msvc
-            exe: chisel.exe
           - name: macos-arm64
             os: macos-latest
             target: aarch64-apple-darwin
-            exe: chisel
           # musl = fully static, so it runs on any 64-bit Raspberry Pi OS
           # regardless of the glibc version installed on the Pi.
           - name: linux-arm64-rpi5
             os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
-            exe: chisel
           # static build for any 64-bit Intel/AMD Linux distro
           - name: linux-x86_64
             os: ubuntu-latest
             target: x86_64-unknown-linux-musl
-            exe: chisel
 
     steps:
       - uses: actions/checkout@v5
@@ -82,24 +75,15 @@ jobs:
       - name: build
         run: cargo build --release --locked --target ${{ matrix.target }}
 
-      - name: package (zip)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $name = "chisel-${{ github.ref_name }}-${{ matrix.name }}"
-          New-Item -ItemType Directory -Force dist | Out-Null
-          Compress-Archive -Path "target/${{ matrix.target }}/release/${{ matrix.exe }}", README.md, LICENSE, templates -DestinationPath "dist/$name.zip"
-
       - name: package (tar.gz)
-        if: runner.os != 'Windows'
         shell: bash
         run: |
           name="chisel-${{ github.ref_name }}-${{ matrix.name }}"
           mkdir -p dist
-          cp "target/${{ matrix.target }}/release/${{ matrix.exe }}" README.md LICENSE dist/
-          cp -r templates dist/
-          tar -C dist -czf "dist/$name.tar.gz" ${{ matrix.exe }} README.md LICENSE templates
-          rm -rf dist/${{ matrix.exe }} dist/README.md dist/LICENSE dist/templates
+          cp "target/${{ matrix.target }}/release/chisel" README.md LICENSE dist/
+          cp -r bare dist/
+          tar -C dist -czf "dist/$name.tar.gz" chisel README.md LICENSE bare
+          rm -rf dist/chisel dist/README.md dist/LICENSE dist/bare
 
       - uses: actions/upload-artifact@v6
         with:
