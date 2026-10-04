@@ -2,20 +2,20 @@
 {
   "version" : "https://jsonfeed.org/version/1.1",
   "title" : {{ site_title | tojson }},
-  "home_page_url" : "{{ site_url }}",
-  "feed_url" : "{{ site_url }}/feed.json",
+  "home_page_url" : {{ site_url | tojson }},
+  "feed_url" : {{ (site_url ~ "/feed.json") | tojson }},
   "description" : {{ site_desc | tojson }},
   "authors" : [
     {
       "name" : {{ site_author | tojson }},
-      "url" : "{{ site_url }}"
+      "url" : {{ site_url | tojson }}
     }
   ],
   "items" : [
   {%- for entry in entries %}
     {
-      "id" : "{{ site_url }}/{{ entry.url }}",
-      "url" : "{{ site_url }}/{{ entry.url }}",
+      "id" : {{ (site_url ~ "/" ~ entry.url) | tojson }},
+      "url" : {{ (site_url ~ "/" ~ entry.url) | tojson }},
       "title" : {{ entry.title | tojson }},
       "content_text" : {{ entry.content | striptags | truncate | tojson }},
       "date_published" : "{{ entry.feed_date }}"

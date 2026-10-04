@@ -6,7 +6,7 @@
   {%- for entry in entries %}
     <li>
       <time datetime="{{ entry.feed_date }}">{{ entry.nice_date }}</time>
-      &mdash; <a href="/{{ entry.url }}">{{ entry.title | e }}</a>
+      &mdash; <a href="/{{ entry.url | e }}">{{ entry.title | e }}</a>
     </li>
   {%- endfor %}
   </ul>

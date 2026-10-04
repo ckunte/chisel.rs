@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -23,7 +23,7 @@ jobs:
     name: check tag matches Cargo.toml
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: compare versions
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
@@ -58,9 +58,9 @@ jobs:
             target: x86_64-unknown-linux-musl
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
         with:
           targets: ${{ matrix.target }}
 
@@ -68,7 +68,7 @@ jobs:
         if: contains(matrix.target, 'musl')
         run: sudo apt-get update && sudo apt-get install -y musl-tools
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           key: ${{ matrix.target }}
 
@@ -77,15 +77,18 @@ jobs:
 
       - name: package (tar.gz)
         shell: bash
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          MATRIX_NAME: ${{ matrix.name }}
         run: |
-          name="chisel-${{ github.ref_name }}-${{ matrix.name }}"
+          name="chisel-${REF_NAME}-${MATRIX_NAME}"
           mkdir -p dist
           cp "target/${{ matrix.target }}/release/chisel" README.md LICENSE dist/
           cp -r bare dist/
           tar -C dist -czf "dist/$name.tar.gz" chisel README.md LICENSE bare
           rm -rf dist/chisel dist/README.md dist/LICENSE dist/bare
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: chisel-${{ matrix.name }}
           path: dist/*
@@ -95,8 +98,10 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           path: dist
           merge-multiple: true
@@ -104,7 +109,7 @@ jobs:
       - name: checksums
         run: cd dist && sha256sum * > SHA256SUMS.txt
 
-      - uses: softprops/action-gh-release@v3
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           files: dist/*
           generate_release_notes: true
