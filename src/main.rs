@@ -172,11 +172,13 @@ fn preprocess(src: &str) -> String {
 /// needed.  `is_feed = true` suppresses the `.html` extension (used for
 /// `feed.json`).
 fn write_file(www: &Path, url_path: &str, data: &str, is_feed: bool) {
-    let base = www.join(url_path);
+    // Append ".html" to the whole name; `with_extension` would replace
+    // everything after the last dot, so "foo.v2" would be written as
+    // "foo.html" and collide with "foo.v1".
     let dest = if is_feed {
-        base
+        www.join(url_path)
     } else {
-        base.with_extension("html")
+        www.join(format!("{url_path}.html"))
     };
 
     // Year directories are pre-created once in `ensure_year_dirs` before any
@@ -251,6 +253,11 @@ fn get_tree(source: &Path) -> Vec<Entry> {
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| {
+            // Never follow symlinks: a link named `x.md` pointing at a
+            // sensitive file would otherwise be read and published.
+            if e.path_is_symlink() {
+                return false;
+            }
             let name = e.file_name().to_string_lossy();
             (name.ends_with(".md") || name.ends_with(".mdown"))
                 && !name.starts_with('.')
@@ -294,6 +301,15 @@ fn build_env(tmpl_dir: Arc<PathBuf>) -> Environment<'static> {
     // -- Loader --------------------------------------------------------------
     // The closure is `'static + Send + Sync` because it only captures an Arc.
     env.set_loader(move |name: &str| -> Result<Option<String>, Error> {
+        // Reject names that could escape the template folder
+        // (`../x`, absolute paths, backslashes).
+        let safe = !name.contains('\\')
+            && Path::new(name)
+                .components()
+                .all(|c| matches!(c, std::path::Component::Normal(_)));
+        if !safe {
+            return Ok(None);
+        }
         let path = tmpl_dir.join(name);
         match fs::read_to_string(&path) {
             Ok(src) => Ok(Some(preprocess(&src))),
@@ -577,7 +593,13 @@ fn main() {
         return;
     }
 
-    let home_dir  = PathBuf::from(std::env::var("HOME").unwrap_or_default());
+    let home_dir  = match std::env::var_os("HOME") {
+        Some(h) if !h.is_empty() => PathBuf::from(h),
+        _ => {
+            eprintln!("chisel: $HOME is not set");
+            std::process::exit(1);
+        }
+    };
     let loc_posts = home_dir.join(POSTS);
     let loc_www   = home_dir.join(WWW);
     let loc_tmpl  = Arc::new(home_dir.join(TMPL));

@@ -2,11 +2,11 @@
    small {title, url} structs -- no need to scan the full `entries` list. #}
 <nav class="pager">
   {%- if prev %}
-  <a class="prev" href="/{{ prev.url }}">&laquo; {{ prev.title | e }}</a>
+  <a class="prev" href="/{{ prev.url | e }}">&laquo; {{ prev.title | e }}</a>
   {%- else %}
   <span></span>
   {%- endif %}
   {%- if next %}
-  <a class="next" href="/{{ next.url }}">{{ next.title | e }} &raquo;</a>
+  <a class="next" href="/{{ next.url | e }}">{{ next.title | e }} &raquo;</a>
   {%- endif %}
 </nav>
