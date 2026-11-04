@@ -6,10 +6,9 @@
 //! • `comrak`    replaces Python-Markdown: GFM tables, footnotes,
 //!               strikethrough, smart punctuation (smartypants), fenced code.
 //! • `minijinja` replaces Jinja2: same template syntax, same filter names.
-//! • `{% markdown %}…{% endmarkdown %}` blocks (from j2m.py) are rewritten
-//!   in-process to `{% set _mdN %}…{% endset %}{{ _mdN | markdown }}` so
-//!   Jinja expressions inside the block are expanded first, then the result
-//!   is rendered as Markdown — identical semantics to the Python extension.
+//! • `{% filter markdown %}…{% endfilter %}` blocks run the block's rendered
+//!   output (Jinja expressions already expanded) through the `markdown`
+//!   filter — identical semantics to j2m.py's MarkdownExtension.
 //! • `rayon`     parallelises the notes-folder walk: each .md file is parsed
 //!   on a separate thread; template rendering stays sequential (one env, no
 //!   cross-thread borrow needed).
@@ -19,12 +18,12 @@
 use std::{
     fs,
     path::{Path, PathBuf},
-    sync::{Arc, OnceLock},
+    sync::OnceLock,
 };
 
 use chrono::{Datelike, Local, NaiveDateTime};
 use comrak::{markdown_to_html, Options};
-use minijinja::{context, Environment, Error, ErrorKind};
+use minijinja::{context, path_loader, Environment};
 use rayon::prelude::*;
 use regex::Regex;
 use walkdir::WalkDir;
@@ -112,58 +111,6 @@ fn render_md(text: &str) -> String {
                                           // <figure>, <details>, and any inline
                                           // HTML mixed with markdown content
     markdown_to_html(text, &opts)
-}
-
-// ── Template preprocessing ────────────────────────────────────────────────────
-
-/// Rewrite `{% markdown %}…{% endmarkdown %}` blocks so minijinja can handle
-/// them natively.
-///
-/// The transform:
-/// ```text
-/// {% markdown %}          →   {% set _md0 %}
-///   {{ expr }} text           {{ expr }} text
-/// {% endmarkdown %}       →   {% endset %}{{ _md0 | markdown }}
-/// ```
-///
-/// Because `{% set var %}…{% endset %}` captures the *rendered* content
-/// (Jinja expressions already evaluated), the `markdown` filter then receives
-/// plain text and produces HTML — exactly what j2m.py's MarkdownExtension did.
-///
-/// Handles `{%- … -%}` whitespace-trim variants.  Blocks must not be nested.
-fn preprocess(src: &str) -> String {
-    static OPEN: OnceLock<Regex> = OnceLock::new();
-    static CLOSE: OnceLock<Regex> = OnceLock::new();
-
-    let open = OPEN.get_or_init(|| {
-        Regex::new(r"\{%-?\s*markdown\s*-?%\}").unwrap()
-    });
-    let close = CLOSE.get_or_init(|| {
-        Regex::new(r"\{%-?\s*endmarkdown\s*-?%\}").unwrap()
-    });
-
-    let mut out = src.to_owned();
-    let mut n   = 0usize;
-
-    while let Some(om) = open.find(&out) {
-        let var = format!("_md{n}");
-        n += 1;
-        // Replace {% markdown %} with {% set _mdN %}
-        out = format!(
-            "{}{{% set {var} %}}{}",
-            &out[..om.start()],
-            &out[om.end()..]
-        );
-        // Replace {% endmarkdown %} with {% endset %}{{ _mdN | markdown }}
-        if let Some(cm) = close.find(&out) {
-            out = format!(
-                "{}{{% endset %}}{{{{ {var} | markdown }}}}{}",
-                &out[..cm.start()],
-                &out[cm.end()..]
-            );
-        }
-    }
-    out
 }
 
 // ── File I/O ──────────────────────────────────────────────────────────────────
@@ -278,7 +225,7 @@ fn get_tree(source: &Path) -> Vec<Entry> {
 // ── minijinja environment ─────────────────────────────────────────────────────
 
 /// Build a minijinja `Environment` with:
-/// * a file-system loader that preprocesses `{% markdown %}` blocks
+/// * a file-system loader (`path_loader`)
 /// * a `markdown`  filter — `{{ text | markdown }}` -> HTML
 /// * an `age`      filter — `{{ birth_month | age(birth_year) }}` -> integer years
 /// * a `striptags` filter — `{{ html | striptags }}` -> plain text
@@ -288,22 +235,12 @@ fn get_tree(source: &Path) -> Vec<Entry> {
 /// `tojson` is provided by minijinja's `json` feature (enabled in Cargo.toml).
 /// All other filters (`title`, `e`/`escape`, `selectattr`, `first`, `join`, ...)
 /// come from minijinja's `builtins` feature.
-fn build_env(tmpl_dir: Arc<PathBuf>) -> Environment<'static> {
+fn build_env(tmpl_dir: PathBuf) -> Environment<'static> {
     let mut env = Environment::new();
 
     // -- Loader --------------------------------------------------------------
-    // The closure is `'static + Send + Sync` because it only captures an Arc.
-    env.set_loader(move |name: &str| -> Result<Option<String>, Error> {
-        let path = tmpl_dir.join(name);
-        match fs::read_to_string(&path) {
-            Ok(src) => Ok(Some(preprocess(&src))),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(e) => Err(Error::new(
-                ErrorKind::InvalidOperation,
-                e.to_string(),
-            )),
-        }
-    });
+    // Templates use `{% filter markdown %}…{% endfilter %}` for Markdown blocks.
+    env.set_loader(path_loader(tmpl_dir));
 
     // -- Filters -------------------------------------------------------------
 
@@ -580,7 +517,7 @@ fn main() {
     let home_dir  = PathBuf::from(std::env::var("HOME").unwrap_or_default());
     let loc_posts = home_dir.join(POSTS);
     let loc_www   = home_dir.join(WWW);
-    let loc_tmpl  = Arc::new(home_dir.join(TMPL));
+    let loc_tmpl  = home_dir.join(TMPL);
 
     println!("Chiseling...");
 
@@ -590,7 +527,7 @@ fn main() {
     println!("done. ({} notes)", entries.len());
 
     // ── Set up the template environment ─────────────────────────────────────
-    let env = build_env(Arc::clone(&loc_tmpl));
+    let env = build_env(loc_tmpl);
 
     // ── Run generation steps ─────────────────────────────────────────────────
     ensure_year_dirs(&entries, &loc_www);   // one mkdir per distinct year
